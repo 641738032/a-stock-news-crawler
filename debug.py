@@ -8,8 +8,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.scrapers.cls_scraper import CLSScraper
-from src.scrapers.xueqiu_scraper import XueqiuScraper
+from src.scrapers.cls_scraper_api import CLSScraperAPI
+from src.scrapers.xueqiu_scraper_improved import XueqiuScraperImproved
 from src.utils.time_utils import get_trading_status
 
 
@@ -28,7 +28,7 @@ def test_scrapers():
     print("\n" + "=" * 60)
     print("测试财联社爬虫")
     print("=" * 60)
-    cls_scraper = CLSScraper()
+    cls_scraper = CLSScraperAPI()
     cls_news = cls_scraper.scrape()
     print(f"\n爬取结果: {len(cls_news)} 条新闻")
     if cls_news:
@@ -42,7 +42,7 @@ def test_scrapers():
     print("\n" + "=" * 60)
     print("测试雪球爬虫")
     print("=" * 60)
-    xueqiu_scraper = XueqiuScraper()
+    xueqiu_scraper = XueqiuScraperImproved()
     xueqiu_news = xueqiu_scraper.scrape()
     print(f"\n爬取结果: {len(xueqiu_news)} 条新闻")
     if xueqiu_news:

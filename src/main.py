@@ -9,8 +9,8 @@ from typing import List, Dict, Any
 # 添加 src 目录到 Python 路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.scrapers.cls_scraper_v2 import CLSScraperV2
-from src.scrapers.xueqiu_scraper_v2 import XueqiuScraperV2
+from src.scrapers.cls_scraper_api import CLSScraperAPI
+from src.scrapers.xueqiu_scraper_improved import XueqiuScraperImproved
 from src.utils.data_manager import DataManager
 from src.utils.time_utils import TimeUtils, is_trading_hours, get_trading_status
 from src.utils.logger import Logger
@@ -32,10 +32,10 @@ class CrawlerApp:
         self.logger = Logger.get_logger()
         self.data_manager = DataManager(data_dir='data')
 
-        # 初始化爬虫 (使用 V2 版本 - 支持 JavaScript 渲染)
+        # 初始化爬虫 (使用 API 版本 - 直接调用 API)
         self.scrapers = {
-            '财联社': CLSScraperV2(),
-            '雪球': XueqiuScraperV2(),
+            '财联社': CLSScraperAPI(),
+            '雪球': XueqiuScraperImproved(),
         }
 
         # 初始化推送器
