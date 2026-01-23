@@ -25,7 +25,7 @@ notifiers:
     recipients: []
 
 schedule:
-  trading_hours_only: true
+  trading_hours_only: false
   trading_start: "09:30"
   trading_end: "15:00"
   timezone: "Asia/Shanghai"

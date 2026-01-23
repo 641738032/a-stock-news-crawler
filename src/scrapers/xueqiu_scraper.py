@@ -30,6 +30,7 @@ class XueqiuScraper(BaseScraper):
             headers = {
                 'Referer': 'https://xueqiu.com/',
                 'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             }
 
             # 发送请求
@@ -38,29 +39,48 @@ class XueqiuScraper(BaseScraper):
                 print(f"[{self.name}] 请求失败")
                 return news_list
 
+            # 检查响应内容
+            print(f"[{self.name}] 响应状态码: {response.status_code}, 内容长度: {len(response.content)}")
+
             # 解析 HTML
             soup = BeautifulSoup(response.content, 'lxml')
 
-            # 查找新闻项目
-            # 雪球的热门话题通常在特定的 div 中
-            news_items = soup.find_all('div', class_='item')
+            # 调试: 打印 HTML 结构（仅前 500 字符）
+            html_preview = str(soup)[:500]
+            print(f"[{self.name}] HTML 预览: {html_preview}...")
+
+            # 查找新闻项目 - 尝试多种选择器
+            selectors = [
+                ('div', {'class': 'item'}),
+                ('li', {'class': 'list-item'}),
+                ('article', {}),
+                ('div', {'class': 'feed-item'}),
+                ('div', {'class': 'post-item'}),
+            ]
+
+            news_items = []
+            for tag, attrs in selectors:
+                news_items = soup.find_all(tag, attrs if attrs else True)
+                if news_items:
+                    print(f"[{self.name}] 使用选择器 {tag} {attrs} 找到 {len(news_items)} 条新闻")
+                    break
 
             if not news_items:
-                # 尝试其他选择器
-                news_items = soup.find_all('li', class_='list-item')
-
-            print(f"[{self.name}] 找到 {len(news_items)} 条新闻")
+                print(f"[{self.name}] 警告: 未找到任何新闻项目，可能需要调整选择器或使用浏览器自动化")
 
             for item in news_items[:30]:  # 限制最多 30 条
                 try:
                     # 提取标题
-                    title_elem = item.find('h3') or item.find('a', class_='title')
+                    title_elem = item.find('h3') or item.find('h2') or item.find('a', class_='title')
                     if not title_elem:
                         title_elem = item.find('a')
                     if not title_elem:
                         continue
 
                     title = title_elem.get_text(strip=True)
+
+                    if not title or len(title) < 5:
+                        continue
 
                     # 提取链接
                     link_elem = item.find('a', href=True)
@@ -104,7 +124,9 @@ class XueqiuScraper(BaseScraper):
             print(f"[{self.name}] 成功爬取 {len(news_list)} 条新闻")
 
         except Exception as e:
+            import traceback
             print(f"[{self.name}] 爬取失败: {e}")
+            print(f"[{self.name}] 详细错误: {traceback.format_exc()}")
 
         return news_list
 

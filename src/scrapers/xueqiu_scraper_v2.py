@@ -1,23 +1,22 @@
 """
-财联社爬虫
-爬取财联社快讯页面的最新新闻
+雪球爬虫（升级版 - 支持 JavaScript 渲染）
+使用 Playwright 浏览器自动化
 """
 from typing import List, Dict, Any
 from datetime import datetime
-from bs4 import BeautifulSoup
-from .base import BaseScraper
+from .browser_base import BrowserScraper
 
 
-class CLSScraper(BaseScraper):
-    """财联社爬虫"""
+class XueqiuScraperV2(BrowserScraper):
+    """雪球爬虫 v2 - 使用 Playwright"""
 
     def __init__(self):
-        super().__init__(name='财联社', max_retries=3, timeout=10)
-        self.base_url = 'https://www.cls.cn/telegraph'
+        super().__init__(name='雪球')
+        self.base_url = 'https://xueqiu.com/hq'
 
     def scrape(self) -> List[Dict[str, Any]]:
         """
-        爬取财联社快讯
+        爬取雪球热门话题
 
         Returns:
             新闻列表
@@ -26,71 +25,90 @@ class CLSScraper(BaseScraper):
         news_list = []
 
         try:
-            # 设置额外的请求头
-            headers = {
-                'Referer': 'https://www.cls.cn/',
-                'X-Requested-With': 'XMLHttpRequest',
-            }
+            # 使用 Playwright 获取页面内容
+            # 等待热门话题列表加载
+            html_content = self.get_page_content(
+                self.base_url,
+                wait_selector='.item, .feed-item, .post-item, .list-item',
+                wait_time=5000
+            )
 
-            # 发送请求
-            response = self.make_request(self.base_url, headers=headers)
-            if not response:
-                print(f"[{self.name}] 请求失败")
+            if not html_content:
+                print(f"[{self.name}] 获取页面内容失败")
                 return news_list
 
-            # 检查响应内容
-            print(f"[{self.name}] 响应状态码: {response.status_code}, 内容长度: {len(response.content)}")
-
             # 解析 HTML
-            soup = BeautifulSoup(response.content, 'lxml')
-
-            # 调试: 打印 HTML 结构（仅前 500 字符）
-            html_preview = str(soup)[:500]
-            print(f"[{self.name}] HTML 预览: {html_preview}...")
+            soup = self.parse_html(html_content)
+            if not soup:
+                return news_list
 
             # 查找新闻项目 - 尝试多种选择器
             selectors = [
-                ('div', {'class': 'telegraph-item'}),
                 ('div', {'class': 'item'}),
-                ('article', {}),
+                ('div', {'class': 'feed-item'}),
+                ('div', {'class': 'post-item'}),
                 ('li', {'class': 'list-item'}),
-                ('div', {'class': 'news-item'}),
+                ('article', {}),
+                ('li', {}),
             ]
 
             news_items = []
             for tag, attrs in selectors:
-                news_items = soup.find_all(tag, attrs if attrs else True)
+                if attrs:
+                    news_items = soup.find_all(tag, attrs)
+                else:
+                    news_items = soup.find_all(tag)
                 if news_items:
                     print(f"[{self.name}] 使用选择器 {tag} {attrs} 找到 {len(news_items)} 条新闻")
                     break
 
             if not news_items:
-                print(f"[{self.name}] 警告: 未找到任何新闻项目，可能需要调整选择器或使用浏览器自动化")
+                print(f"[{self.name}] 警告: 未找到任何新闻项目")
 
-            for item in news_items[:50]:  # 限制最多 50 条
+            for item in news_items[:30]:
                 try:
                     # 提取标题
-                    title_elem = item.find('h3') or item.find('h2') or item.find('a')
+                    title_elem = (
+                        item.find('h3') or
+                        item.find('h2') or
+                        item.find('a', class_='title') or
+                        item.find('a')
+                    )
                     if not title_elem:
                         continue
-                    title = title_elem.get_text(strip=True)
 
-                    if not title or len(title) < 5:
+                    title = title_elem.get_text(strip=True)
+                    if not title or len(title) < 3:
                         continue
 
                     # 提取链接
                     link_elem = item.find('a', href=True)
                     url = link_elem['href'] if link_elem else ''
                     if url and not url.startswith('http'):
-                        url = 'https://www.cls.cn' + url
+                        url = 'https://xueqiu.com' + url
 
-                    # 提取内容/摘要
-                    content_elem = item.find('p') or item.find('div', class_='content')
+                    # 提取内容
+                    content_elem = (
+                        item.find('p', class_='summary') or
+                        item.find('p') or
+                        item.find('span', class_='content')
+                    )
                     content = content_elem.get_text(strip=True) if content_elem else title
 
                     # 提取时间
-                    time_elem = item.find('span', class_='time') or item.find('span', class_='date')
+                    time_elem = (
+                        item.find('span', class_='time') or
+                        item.find('span', class_='date') or
+                        item.find('span', class_='publish-time')
+                    )
                     time_str = time_elem.get_text(strip=True) if time_elem else ''
+
+                    # 提取热度/点赞数
+                    likes_elem = (
+                        item.find('span', class_='likes') or
+                        item.find('span', class_='like-count')
+                    )
+                    likes = likes_elem.get_text(strip=True) if likes_elem else '0'
 
                     # 解析时间
                     publish_time = self._parse_time(time_str)
@@ -101,7 +119,10 @@ class CLSScraper(BaseScraper):
                         content=content,
                         url=url,
                         publish_time=publish_time,
-                        extra={'raw_time': time_str}
+                        extra={
+                            'raw_time': time_str,
+                            'likes': likes
+                        }
                     )
 
                     news_list.append(news_item)
@@ -120,15 +141,7 @@ class CLSScraper(BaseScraper):
         return news_list
 
     def _parse_time(self, time_str: str) -> datetime:
-        """
-        解析时间字符串
-
-        Args:
-            time_str: 时间字符串，如 "10:30", "今天 10:30", "2026-01-23 10:30"
-
-        Returns:
-            datetime 对象
-        """
+        """解析时间字符串"""
         if not time_str:
             return datetime.now()
 
@@ -147,7 +160,6 @@ class CLSScraper(BaseScraper):
         for fmt in formats:
             try:
                 dt = datetime.strptime(time_str, fmt)
-                # 如果没有年份，使用当前年份
                 if dt.year == 1900:
                     now = datetime.now()
                     dt = dt.replace(year=now.year, month=now.month, day=now.day)
@@ -155,9 +167,9 @@ class CLSScraper(BaseScraper):
             except ValueError:
                 continue
 
-        # 处理相对时间 "今天 10:30"
-        if '今天' in time_str:
-            time_part = time_str.replace('今天', '').strip()
+        # 处理相对时间
+        if '今天' in time_str or '今' in time_str:
+            time_part = time_str.replace('今天', '').replace('今', '').strip()
             try:
                 dt = datetime.strptime(time_part, '%H:%M')
                 now = datetime.now()
@@ -165,5 +177,4 @@ class CLSScraper(BaseScraper):
             except ValueError:
                 pass
 
-        # 如果都失败，返回当前时间
         return datetime.now()
