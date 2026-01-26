@@ -151,6 +151,11 @@ class CrawlerApp:
         # 执行爬取
         all_new_items = {}
         for source_name, scraper in self.scrapers.items():
+            # 只处理财联社
+            if source_name != '财联社':
+                self.logger.info(f"跳过 {source_name} (仅关注财联社)")
+                continue
+
             if not self.config.get('scrapers', {}).get(source_name.lower(), {}).get('enabled', True):
                 self.logger.info(f"跳过 {source_name} (已禁用)")
                 continue
@@ -164,12 +169,12 @@ class CrawlerApp:
                     self.logger.warning(f"{source_name} 爬取失败或无数据")
                     continue
 
-                # 检测增量
-                new_items = self.data_manager.detect_new_items(source_name, new_news)
+                # 过滤最近一小时的新闻
+                recent_news = self._filter_recent_news(new_news, hours=1)
 
-                if new_items:
-                    all_new_items[source_name] = new_items
-                    self.logger.info(f"{source_name} 新增 {len(new_items)} 条新闻")
+                if recent_news:
+                    all_new_items[source_name] = recent_news
+                    self.logger.info(f"{source_name} 最近一小时新增 {len(recent_news)} 条新闻")
 
                 # 合并数据
                 merged_news = self.data_manager.merge_news(source_name, new_news)
@@ -185,7 +190,7 @@ class CrawlerApp:
         if all_new_items:
             self._send_notifications(all_new_items)
         else:
-            self.logger.info("没有新增内容，跳过推送")
+            self.logger.info("没有最近一小时的新内容，跳过推送")
 
         # 输出统计信息
         stats = self.data_manager.get_statistics()
@@ -212,6 +217,43 @@ class CrawlerApp:
                         self.logger.warning(f"{notifier_name} 推送失败")
                 except Exception as e:
                     self.logger.error(f"{notifier_name} 推送异常: {e}")
+
+    def _filter_recent_news(self, news_list: List[Dict[str, Any]], hours: int = 1) -> List[Dict[str, Any]]:
+        """
+        过滤最近N小时的新闻
+
+        Args:
+            news_list: 新闻列表
+            hours: 小时数
+
+        Returns:
+            过滤后的新闻列表
+        """
+        from datetime import datetime, timedelta
+
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+        recent_news = []
+
+        for news in news_list:
+            try:
+                publish_time_str = news.get('publish_time', '')
+                if not publish_time_str:
+                    continue
+
+                # 解析发布时间
+                if isinstance(publish_time_str, str):
+                    publish_time = datetime.fromisoformat(publish_time_str)
+                else:
+                    publish_time = publish_time_str
+
+                # 检查是否在最近N小时内
+                if publish_time >= cutoff_time:
+                    recent_news.append(news)
+            except Exception as e:
+                self.logger.warning(f"解析新闻时间失败: {e}")
+                continue
+
+        return recent_news
 
 
 def main():
