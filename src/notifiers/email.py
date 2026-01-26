@@ -130,6 +130,9 @@ class EmailNotifier(BaseNotifier):
             '<style>',
             'body { font-family: Arial, sans-serif; color: #333; }',
             'h1 { color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px; }',
+            'h2 { color: #ff6600; margin-top: 20px; }',
+            '.summary { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ff6600; margin: 20px 0; }',
+            '.summary-item { margin: 8px 0; }',
             'table { width: 100%; border-collapse: collapse; margin-top: 20px; }',
             'th { background-color: #0066cc; color: white; padding: 10px; text-align: left; }',
             'td { padding: 10px; border-bottom: 1px solid #ddd; }',
@@ -143,13 +146,25 @@ class EmailNotifier(BaseNotifier):
             '<body>',
             f'<h1>📰 A股新闻播报 - {source}</h1>',
             f'<p>共 <strong>{len(news_list)}</strong> 条新闻</p>',
+        ]
+
+        # 添加热点总结
+        summary = self._generate_summary(news_list)
+        if summary:
+            html_lines.append('<div class="summary">')
+            html_lines.append('<h2>🔥 热点总结</h2>')
+            for item in summary:
+                html_lines.append(f'<div class="summary-item">{item}</div>')
+            html_lines.append('</div>')
+
+        html_lines.extend([
             '<table>',
             '<tr>',
             '<th>时间</th>',
             '<th>标题</th>',
             '<th>链接</th>',
             '</tr>',
-        ]
+        ])
 
         for news in news_list[:50]:  # 最多显示 50 条
             title = news.get('title', '无标题')
@@ -184,3 +199,56 @@ class EmailNotifier(BaseNotifier):
         ])
 
         return '\n'.join(html_lines)
+
+    def _generate_summary(self, news_list: List[Dict[str, Any]]) -> List[str]:
+        """
+        生成新闻热点总结
+
+        Args:
+            news_list: 新闻列表
+
+        Returns:
+            总结行列表
+        """
+        if not news_list:
+            return []
+
+        # 关键词和板块映射
+        sector_keywords = {
+            '芯片': ['芯片', '半导体', 'IC', '集成电路', '光刻', '制程'],
+            '新能源': ['新能源', '电动车', 'EV', '电池', '光伏', '风电', '储能'],
+            '医药': ['医药', '制药', '生物', '疫苗', '药物', '医疗'],
+            '房地产': ['房地产', '地产', '房企', '楼市', '房价', '开发商'],
+            '金融': ['银行', '保险', '证券', '基金', '金融', '理财'],
+            '消费': ['消费', '零售', '电商', '餐饮', '服装', '家电'],
+            '科技': ['科技', '互联网', '软件', '云计算', '大数据', 'AI', '人工智能'],
+            '制造': ['制造', '工业', '机械', '汽车', '装备'],
+            '资源': ['煤炭', '石油', '有色', '钢铁', '资源'],
+        }
+
+        # 统计各板块出现次数
+        sector_count = {}
+        sector_examples = {}
+
+        for news in news_list:
+            title = news.get('title', '').lower()
+            content = news.get('content', '').lower()
+            text = title + content
+
+            for sector, keywords in sector_keywords.items():
+                for keyword in keywords:
+                    if keyword.lower() in text:
+                        sector_count[sector] = sector_count.get(sector, 0) + 1
+                        if sector not in sector_examples:
+                            sector_examples[sector] = title[:40]
+                        break
+
+        # 获取前3个热点板块
+        sorted_sectors = sorted(sector_count.items(), key=lambda x: x[1], reverse=True)[:3]
+
+        summary_lines = []
+        for idx, (sector, count) in enumerate(sorted_sectors, 1):
+            example = sector_examples.get(sector, '')
+            summary_lines.append(f"{idx}. <strong>{sector}</strong> ({count}条) - {example}...")
+
+        return summary_lines
