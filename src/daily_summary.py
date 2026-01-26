@@ -62,9 +62,19 @@ class DailySummaryApp:
         Returns:
             邮件配置字典
         """
+        try:
+            smtp_port_str = os.getenv('EMAIL_SMTP_PORT', '587').strip()
+            # 移除可能的冒号前缀
+            if smtp_port_str.startswith(':'):
+                smtp_port_str = smtp_port_str[1:]
+            smtp_port = int(smtp_port_str)
+        except (ValueError, AttributeError) as e:
+            self.logger.error(f"邮件端口配置错误: {e}，使用默认端口 587")
+            smtp_port = 587
+
         config = {
             'smtp_host': os.getenv('EMAIL_SMTP_HOST'),
-            'smtp_port': int(os.getenv('EMAIL_SMTP_PORT', '587')),
+            'smtp_port': smtp_port,
             'user': os.getenv('EMAIL_USER'),
             'password': os.getenv('EMAIL_PASSWORD'),
             'recipients': os.getenv('EMAIL_RECIPIENTS', '').split(','),
@@ -74,10 +84,13 @@ class DailySummaryApp:
         # 检查必要的配置
         if not all([config['smtp_host'], config['user'], config['password'], config['recipients']]):
             self.logger.warning("邮件配置不完整，跳过邮件推送器初始化")
+            self.logger.debug(f"配置检查: smtp_host={bool(config['smtp_host'])}, user={bool(config['user'])}, password={bool(config['password'])}, recipients={bool(config['recipients'])}")
             return None
 
         # 清理收件人列表
         config['recipients'] = [r.strip() for r in config['recipients'] if r.strip()]
+
+        self.logger.info(f"邮件配置加载成功: host={config['smtp_host']}, port={config['smtp_port']}, user={config['user']}, recipients={config['recipients']}")
 
         return config
 

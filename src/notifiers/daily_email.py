@@ -42,26 +42,38 @@ class DailySummaryEmailNotifier(EmailNotifier):
         try:
             # 构建邮件
             msg = self._build_daily_email(classified_news, date_str, total_count)
+            print(f"[{self.name}] 邮件构建完成，大小: {len(msg.as_string())} 字节")
 
             # 连接 SMTP 服务器
+            print(f"[{self.name}] 正在连接 SMTP 服务器: {self.smtp_host}:{self.smtp_port} (TLS={self.use_tls})")
             if self.use_tls:
                 server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10)
+                print(f"[{self.name}] SMTP 连接成功，正在启用 TLS")
                 server.starttls()
             else:
                 server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10)
+                print(f"[{self.name}] SMTP_SSL 连接成功")
 
             # 登录
+            print(f"[{self.name}] 正在登录: {self.sender}")
             server.login(self.sender, self.password)
+            print(f"[{self.name}] 登录成功")
 
             # 发送邮件
+            print(f"[{self.name}] 正在发送邮件到: {', '.join(self.recipients)}")
             server.send_message(msg)
+            print(f"[{self.name}] 邮件发送成功")
+
             server.quit()
+            print(f"[{self.name}] SMTP 连接已关闭")
 
             print(f"[{self.name}] 每日总结推送成功 ({date_str}): {total_count} 条新闻 -> {', '.join(self.recipients)}")
             return True
 
         except Exception as e:
+            import traceback
             print(f"[{self.name}] 每日总结推送异常: {e}")
+            print(f"[{self.name}] 错误详情:\n{traceback.format_exc()}")
             return False
 
     def _build_daily_email(
