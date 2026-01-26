@@ -2,8 +2,11 @@
 每日新闻总结邮件推送器
 继承自 EmailNotifier，提供专用的每日总结邮件模板
 """
+import smtplib
 from typing import List, Dict, Any
 from datetime import datetime
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from .email import EmailNotifier
 from ..utils.classifier import DAILY_CATEGORIES
 
@@ -42,10 +45,10 @@ class DailySummaryEmailNotifier(EmailNotifier):
 
             # 连接 SMTP 服务器
             if self.use_tls:
-                server = self.smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10)
+                server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10)
                 server.starttls()
             else:
-                server = self.smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10)
+                server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10)
 
             # 登录
             server.login(self.sender, self.password)
@@ -78,9 +81,6 @@ class DailySummaryEmailNotifier(EmailNotifier):
         Returns:
             MIMEMultipart 对象
         """
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f'A股每日新闻总结 - 财联社 | {date_str} ({total_count}条)'
         msg['From'] = self.sender
