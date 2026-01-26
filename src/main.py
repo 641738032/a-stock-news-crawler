@@ -230,8 +230,16 @@ class CrawlerApp:
             过滤后的新闻列表
         """
         from datetime import datetime, timedelta
+        import pytz
 
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        # 使用北京时间
+        china_tz = pytz.timezone('Asia/Shanghai')
+        now_china = datetime.now(china_tz)
+        cutoff_time = now_china - timedelta(hours=hours)
+
+        self.logger.info(f"当前北京时间: {now_china.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.logger.info(f"过滤截断时间: {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
         recent_news = []
 
         for news in news_list:
@@ -245,6 +253,10 @@ class CrawlerApp:
                     publish_time = datetime.fromisoformat(publish_time_str)
                 else:
                     publish_time = publish_time_str
+
+                # 如果没有时区信息，假设是北京时间
+                if publish_time.tzinfo is None:
+                    publish_time = china_tz.localize(publish_time)
 
                 # 检查是否在最近N小时内
                 if publish_time >= cutoff_time:
