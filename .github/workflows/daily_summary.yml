@@ -27,6 +27,63 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 诊断邮件配置
+        env:
+          EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+        run: |
+          echo "=== 邮件配置诊断 ==="
+          echo "SMTP_HOST: ${EMAIL_SMTP_HOST:-(未配置)}"
+          echo "SMTP_PORT: ${EMAIL_SMTP_PORT:-(未配置)}"
+          echo "USER: ${EMAIL_USER:-(未配置)}"
+          echo "PASSWORD: ${EMAIL_PASSWORD:+已配置}"
+          echo "RECIPIENTS: ${EMAIL_RECIPIENTS:-(未配置)}"
+          echo ""
+          echo "=== 测试 SMTP 连接 ==="
+          python3 << 'PYEOF'
+          import smtplib
+          import os
+
+          host = os.getenv('EMAIL_SMTP_HOST')
+          port_str = os.getenv('EMAIL_SMTP_PORT', '587')
+          user = os.getenv('EMAIL_USER')
+          password = os.getenv('EMAIL_PASSWORD')
+
+          if not all([host, user, password]):
+              print("❌ 邮件配置不完整")
+              exit(1)
+
+          try:
+              port = int(port_str.strip().lstrip(':'))
+              print(f"✓ 端口解析成功: {port}")
+          except ValueError as e:
+              print(f"❌ 端口解析失败: {e}")
+              exit(1)
+
+          try:
+              print(f"正在连接 {host}:{port}...")
+              server = smtplib.SMTP(host, port, timeout=10)
+              print("✓ SMTP 连接成功")
+
+              server.starttls()
+              print("✓ TLS 启用成功")
+
+              server.login(user, password)
+              print("✓ 登录成功")
+
+              server.quit()
+              print("✓ 连接关闭")
+              print("✅ 邮件配置正常")
+          except Exception as e:
+              print(f"❌ SMTP 错误: {e}")
+              import traceback
+              traceback.print_exc()
+              exit(1)
+          PYEOF
+
       - name: 运行每日总结
         env:
           EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
