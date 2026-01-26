@@ -80,11 +80,11 @@ class CrawlerApp:
                 'xueqiu': {'enabled': True},
             },
             'notifiers': {
-                'wechat': {'enabled': False},
-                'email': {'enabled': False},
+                'wechat': {'enabled': True},
+                'email': {'enabled': True},
             },
             'schedule': {
-                'trading_hours_only': True,
+                'trading_hours_only': False,
             }
         }
 

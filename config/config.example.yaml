@@ -10,12 +10,12 @@ scrapers:
 
 notifiers:
   wechat:
-    enabled: false
+    enabled: true
     # 使用环境变量 WECHAT_WEBHOOK_URL 配置
     webhook_url: ""
 
   email:
-    enabled: false
+    enabled: true
     # 使用环境变量配置以下参数
     smtp_host: ""
     smtp_port: 587
