@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.scrapers.cls_scraper_api import CLSScraperAPI
 from src.scrapers.xueqiu_scraper_improved import XueqiuScraperImproved
 from src.utils.data_manager import DataManager
-from src.utils.time_utils import TimeUtils, is_trading_hours, get_trading_status
+from src.utils.time_utils import TimeUtils, get_trading_status
 from src.utils.logger import Logger
 from src.notifiers.wechat import WeChatNotifier
 from src.notifiers.email import EmailNotifier
@@ -143,7 +143,7 @@ class CrawlerApp:
         self.logger.info(f"当前状态: {status}")
 
         # 如果配置了仅在交易时段运行，检查时间
-        if self.config.get('schedule', {}).get('trading_hours_only', True):
+        if self.config.get('schedule', {}).get('trading_hours_only', False):
             if not is_trading:
                 self.logger.info("非交易时段，跳过爬取")
                 return
@@ -202,11 +202,6 @@ class CrawlerApp:
         Args:
             new_items: 新增项目字典 {source: [news_list]}
         """
-        # 检查是否在交易时段
-        if not is_trading_hours():
-            self.logger.info("非交易时段，跳过推送")
-            return
-
         for source, news_list in new_items.items():
             self.logger.info(f"推送 {source} 的 {len(news_list)} 条新闻")
 
