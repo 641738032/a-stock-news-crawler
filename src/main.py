@@ -106,27 +106,35 @@ class CrawlerApp:
                 self.logger.info("企业微信推送已启用")
 
         # 邮箱推送
-        email_config = self.config.get('notifiers', ).get('email', {})
-        if email_config.get('enabled'):
-            smtp_host = os.getenv('EMAIL_SMTP_HOST') or email_config.get('smtp_host')
-            smtp_port = int(os.getenv('EMAIL_SMTP_PORT') or email_config.get('smtp_port', 587))
-            sender = os.getenv('EMAIL_USER') or email_config.get('sender')
-            password = os.getenv('EMAIL_PASSWORD') or email_config.get('password')
-            recipients = os.getenv('EMAIL_RECIPIENTS') or email_config.get('recipients', [])
+        email_config = self.config.get('notifiers', {}).get('email', {})
+        smtp_host = os.getenv('EMAIL_SMTP_HOST') or email_config.get('smtp_host')
+        smtp_port_str = os.getenv('EMAIL_SMTP_PORT') or email_config.get('smtp_port', '587')
+        sender = os.getenv('EMAIL_USER') or email_config.get('sender')
+        password = os.getenv('EMAIL_PASSWORD') or email_config.get('password')
+        recipients = os.getenv('EMAIL_RECIPIENTS') or email_config.get('recipients', '')
 
-            if isinstance(recipients, str):
-                recipients = [r.strip() for r in recipients.split(',')]
+        if isinstance(recipients, str):
+            recipients = [r.strip() for r in recipients.split(',') if r.strip()]
 
-            if smtp_host and sender and password and recipients:
-                notifiers['email'] = EmailNotifier(
-                    smtp_host=smtp_host,
-                    smtp_port=smtp_port,
-                    sender=sender,
-                    password=password,
-                    recipients=recipients,
-                    use_tls=email_config.get('use_tls', True)
-                )
-                self.logger.info("邮箱推送已启用")
+        # 如果有环境变量或配置，则启用邮箱推送
+        if smtp_host and sender and password and recipients:
+            try:
+                smtp_port = int(str(smtp_port_str).strip())
+            except (ValueError, AttributeError):
+                smtp_port = 587
+                self.logger.warning(f"邮箱端口配置错误，使用默认端口 587")
+
+            notifiers['email'] = EmailNotifier(
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                sender=sender,
+                password=password,
+                recipients=recipients,
+                use_tls=email_config.get('use_tls', True)
+            )
+            self.logger.info("邮箱推送已启用")
+        elif email_config.get('enabled'):
+            self.logger.warning("邮箱配置不完整，邮箱推送未启用")
 
         return notifiers
 
