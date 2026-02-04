@@ -5,7 +5,8 @@
 import json
 import os
 from typing import List, Dict, Any, Set
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 
 
 class DataManager:
@@ -185,9 +186,9 @@ class DataManager:
         if not news_list:
             return True
 
-        # 计算截断时间
-        from datetime import timedelta
-        cutoff_time = (datetime.now() - timedelta(days=keep_days)).isoformat()
+        # 计算截断时间（使用北京时间）
+        china_tz = pytz.timezone('Asia/Shanghai')
+        cutoff_time = (datetime.now(china_tz) - timedelta(days=keep_days)).isoformat()
 
         # 分离新旧数据
         recent_news = []
@@ -206,10 +207,12 @@ class DataManager:
 
         # 保存旧数据到历史文件
         if old_news:
+            china_tz = pytz.timezone('Asia/Shanghai')
+            beijing_now = datetime.now(china_tz)
             archive_file = os.path.join(
                 self.data_dir,
                 'history',
-                f'{source}_{datetime.now().strftime("%Y%m%d")}.json'
+                f'{source}_{beijing_now.strftime("%Y%m%d")}.json'
             )
             os.makedirs(os.path.dirname(archive_file), exist_ok=True)
 
@@ -231,8 +234,9 @@ class DataManager:
         Returns:
             统计信息
         """
+        china_tz = pytz.timezone('Asia/Shanghai')
         stats = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(china_tz).isoformat(),
             'sources': {}
         }
 

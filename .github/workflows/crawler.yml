@@ -2,7 +2,8 @@ name: A股新闻爬虫定时任务
 
 on:
   schedule:
-    # 每小时执行一次 (UTC 时间)
+    # 每小时执行一次 (UTC 时间，北京时间需要 -8 小时)
+    # 北京时间每小时执行，需要在 UTC 时间的每小时执行
     - cron: '0 * * * *'
 
   # 支持手动触发
@@ -30,6 +31,7 @@ jobs:
 
       - name: 运行爬虫
         env:
+          TZ: Asia/Shanghai
           WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
           EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}

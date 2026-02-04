@@ -109,16 +109,34 @@ class DailySummaryApp:
                 self.logger.warning("财联社数据为空，跳过总结")
                 return
 
-            # 2. 过滤当天新闻
-            today_news = self._filter_today_news(all_news)
-            self.logger.info(f"当天新闻: {len(today_news)} 条")
+            # 2. 确定当前时间段并过滤新闻
+            china_tz = pytz.timezone('Asia/Shanghai')
+            now_china = datetime.now(china_tz)
+            current_hour = now_china.hour
 
-            if not today_news:
-                self.logger.warning("当天没有新闻，跳过发送")
+            # 判断当前是早上 08:30 还是晚上 21:00
+            # 早上 08:30 (允许 08:00-09:00 范围内执行)
+            if 8 <= current_hour < 9:
+                self.logger.info("当前时间段: 早上 08:30 (发送前一天 21:00 至今天 08:30 的新闻)")
+                filtered_news = self._filter_news_morning(all_news, now_china)
+                period_name = "前一天晚上21:00-今天早上08:30"
+            # 晚上 21:00 (允许 20:30-21:30 范围内执行)
+            elif 20 <= current_hour < 22:
+                self.logger.info("当前时间段: 晚上 21:00 (发送今天 08:30 至晚上 21:00 的新闻)")
+                filtered_news = self._filter_news_evening(all_news, now_china)
+                period_name = "今天早上08:30-晚上21:00"
+            else:
+                self.logger.warning(f"当前时间 {now_china.strftime('%H:%M')} 不在预定的总结时间段内 (08:30 或 21:00)")
+                return
+
+            self.logger.info(f"过滤后新闻: {len(filtered_news)} 条 ({period_name})")
+
+            if not filtered_news:
+                self.logger.warning(f"时间段内没有新闻，跳过发送 ({period_name})")
                 return
 
             # 3. 分类新闻
-            classified_news = classify_news_list(today_news)
+            classified_news = classify_news_list(filtered_news)
             self.logger.info(f"分类完成: {len(classified_news)} 个分类")
 
             # 4. 生成统计信息
@@ -126,8 +144,8 @@ class DailySummaryApp:
             self.logger.info(f"统计信息: {stats}")
 
             # 5. 发送邮件
-            date_str = datetime.now().strftime('%Y-%m-%d')
-            self._send_daily_summary(classified_news, len(today_news), date_str)
+            date_str = datetime.now(china_tz).strftime('%Y-%m-%d')
+            self._send_daily_summary(classified_news, len(filtered_news), date_str, period_name)
 
             self.logger.info("=" * 50)
             self.logger.info("每日总结完成")
@@ -185,6 +203,106 @@ class DailySummaryApp:
 
         return today_news
 
+    def _filter_news_morning(self, news_list: List[Dict[str, Any]], now_china: datetime) -> List[Dict[str, Any]]:
+        """
+        过滤早上 08:30 的新闻（前一天 21:00 至今天 08:30）
+
+        Args:
+            news_list: 新闻列表
+            now_china: 当前北京时间
+
+        Returns:
+            过滤后的新闻列表
+        """
+        from datetime import timedelta
+        china_tz = pytz.timezone('Asia/Shanghai')
+
+        # 前一天 21:00
+        yesterday = now_china.date() - timedelta(days=1)
+        period_start = china_tz.localize(datetime.combine(yesterday, time(21, 0, 0)))
+
+        # 今天 08:30
+        period_end = china_tz.localize(datetime.combine(now_china.date(), time(8, 30, 0)))
+
+        self.logger.info(f"早上过滤时间范围: {period_start.strftime('%Y-%m-%d %H:%M:%S')} ~ {period_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        filtered_news = []
+
+        for news in news_list:
+            try:
+                publish_time_str = news.get('publish_time', '')
+                if not publish_time_str:
+                    continue
+
+                # 解析发布时间
+                if isinstance(publish_time_str, str):
+                    publish_time = datetime.fromisoformat(publish_time_str)
+                else:
+                    publish_time = publish_time_str
+
+                # 如果没有时区信息，假设是北京时间
+                if publish_time.tzinfo is None:
+                    publish_time = china_tz.localize(publish_time)
+
+                # 检查是否在时间范围内
+                if period_start <= publish_time <= period_end:
+                    filtered_news.append(news)
+
+            except Exception as e:
+                self.logger.warning(f"解析新闻时间失败: {e}")
+                continue
+
+        return filtered_news
+
+    def _filter_news_evening(self, news_list: List[Dict[str, Any]], now_china: datetime) -> List[Dict[str, Any]]:
+        """
+        过滤晚上 21:00 的新闻（今天 08:30 至晚上 21:00）
+
+        Args:
+            news_list: 新闻列表
+            now_china: 当前北京时间
+
+        Returns:
+            过滤后的新闻列表
+        """
+        china_tz = pytz.timezone('Asia/Shanghai')
+
+        # 今天 08:30
+        period_start = china_tz.localize(datetime.combine(now_china.date(), time(8, 30, 0)))
+
+        # 今天 21:00
+        period_end = china_tz.localize(datetime.combine(now_china.date(), time(21, 0, 0)))
+
+        self.logger.info(f"晚上过滤时间范围: {period_start.strftime('%Y-%m-%d %H:%M:%S')} ~ {period_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        filtered_news = []
+
+        for news in news_list:
+            try:
+                publish_time_str = news.get('publish_time', '')
+                if not publish_time_str:
+                    continue
+
+                # 解析发布时间
+                if isinstance(publish_time_str, str):
+                    publish_time = datetime.fromisoformat(publish_time_str)
+                else:
+                    publish_time = publish_time_str
+
+                # 如果没有时区信息，假设是北京时间
+                if publish_time.tzinfo is None:
+                    publish_time = china_tz.localize(publish_time)
+
+                # 检查是否在时间范围内
+                if period_start <= publish_time <= period_end:
+                    filtered_news.append(news)
+
+            except Exception as e:
+                self.logger.warning(f"解析新闻时间失败: {e}")
+                continue
+
+        return filtered_news
+
     def _generate_statistics(self, classified_news: Dict[str, List[Dict[str, Any]]]) -> Dict[str, int]:
         """
         生成统计信息
@@ -204,7 +322,8 @@ class DailySummaryApp:
         self,
         classified_news: Dict[str, List[Dict[str, Any]]],
         total_count: int,
-        date_str: str
+        date_str: str,
+        period_name: str = "当天"
     ):
         """
         发送每日总结
@@ -213,6 +332,7 @@ class DailySummaryApp:
             classified_news: 分类后的新闻字典
             total_count: 总新闻数
             date_str: 日期字符串
+            period_name: 时间段名称
         """
         if not self.notifiers:
             self.logger.warning("没有可用的推送器")
@@ -220,7 +340,7 @@ class DailySummaryApp:
 
         for notifier_name, notifier in self.notifiers.items():
             try:
-                success = notifier.send_daily_summary(classified_news, date_str, total_count)
+                success = notifier.send_daily_summary(classified_news, date_str, total_count, period_name)
                 if not success:
                     self.logger.warning(f"{notifier_name} 推送失败")
             except Exception as e:

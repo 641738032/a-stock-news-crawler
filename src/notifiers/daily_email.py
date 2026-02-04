@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import pytz
 from .email import EmailNotifier
 from ..utils.classifier import DAILY_CATEGORIES
 
@@ -18,7 +19,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         self,
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
-        total_count: int
+        total_count: int,
+        period_name: str = "当天"
     ) -> bool:
         """
         发送每日总结邮件
@@ -27,6 +29,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
             classified_news: 分类后的新闻字典 {category: [news_list]}
             date_str: 日期字符串，格式 YYYY-MM-DD
             total_count: 当天总新闻数
+            period_name: 时间段名称
 
         Returns:
             是否发送成功
@@ -41,7 +44,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
 
         try:
             # 构建邮件
-            msg = self._build_daily_email(classified_news, date_str, total_count)
+            msg = self._build_daily_email(classified_news, date_str, total_count, period_name)
             print(f"[{self.name}] 邮件构建完成，大小: {len(msg.as_string())} 字节")
 
             # 连接 SMTP 服务器
@@ -80,7 +83,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         self,
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
-        total_count: int
+        total_count: int,
+        period_name: str = "当天"
     ):
         """
         构建每日总结邮件
@@ -89,17 +93,18 @@ class DailySummaryEmailNotifier(EmailNotifier):
             classified_news: 分类后的新闻字典
             date_str: 日期字符串
             total_count: 总新闻数
+            period_name: 时间段名称
 
         Returns:
             MIMEMultipart 对象
         """
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'A股每日新闻总结 - 财联社 | {date_str} ({total_count}条)'
+        msg['Subject'] = f'A股每日新闻总结 - 财联社 | {date_str} ({period_name}) ({total_count}条)'
         msg['From'] = self.sender
         msg['To'] = ', '.join(self.recipients)
 
         # 构建 HTML 内容
-        html_content = self._build_daily_html(classified_news, date_str, total_count)
+        html_content = self._build_daily_html(classified_news, date_str, total_count, period_name)
 
         # 添加 HTML 部分
         html_part = MIMEText(html_content, 'html', 'utf-8')
@@ -111,7 +116,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         self,
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
-        total_count: int
+        total_count: int,
+        period_name: str = "当天"
     ) -> str:
         """
         构建每日总结 HTML 邮件内容
@@ -120,6 +126,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
             classified_news: 分类后的新闻字典
             date_str: 日期字符串
             total_count: 总新闻数
+            period_name: 时间段名称
 
         Returns:
             HTML 字符串
@@ -173,7 +180,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
             '<div class="container">',
             '<div class="header">',
             '<h1>📊 A股每日新闻总结</h1>',
-            f'<p>日期：{date_str} | 总计：{total_count}条</p>',
+            f'<p>日期：{date_str} | 时间段：{period_name} | 总计：{total_count}条</p>',
             '</div>',
         ])
 
@@ -187,9 +194,10 @@ class DailySummaryEmailNotifier(EmailNotifier):
         html_lines.append('</div>')
 
         # 4. 页脚
+        china_tz = pytz.timezone('Asia/Shanghai')
         html_lines.extend([
             '<div class="footer">',
-            f'<p>生成时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>',
+            f'<p>生成时间：{datetime.now(china_tz).strftime("%Y-%m-%d %H:%M:%S")}</p>',
             '<p>数据来源：财联社 | 自动生成，仅供参考</p>',
             '</div>',
             '</div>',

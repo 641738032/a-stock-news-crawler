@@ -5,6 +5,19 @@
 import logging
 import os
 from datetime import datetime
+import pytz
+
+
+class BeijingTimeFormatter(logging.Formatter):
+    """北京时间格式化器"""
+
+    def formatTime(self, record, datefmt=None):
+        """使用北京时间格式化时间戳"""
+        china_tz = pytz.timezone('Asia/Shanghai')
+        dt = datetime.fromtimestamp(record.created, tz=china_tz)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
 
 
 class Logger:
@@ -37,14 +50,16 @@ class Logger:
         # 移除已有的处理器
         logger.handlers.clear()
 
-        # 日志格式
-        formatter = logging.Formatter(
+        # 日志格式（使用北京时间）
+        formatter = BeijingTimeFormatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
 
-        # 文件处理器（每天一个日志文件）
-        log_file = os.path.join(log_dir, f'crawler_{datetime.now().strftime("%Y%m%d")}.log')
+        # 文件处理器（每天一个日志文件，使用北京时间）
+        china_tz = pytz.timezone('Asia/Shanghai')
+        beijing_now = datetime.now(china_tz)
+        log_file = os.path.join(log_dir, f'crawler_{beijing_now.strftime("%Y%m%d")}.log')
         file_handler = logging.FileHandler(log_file, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)

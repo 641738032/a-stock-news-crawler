@@ -8,6 +8,7 @@ import requests
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import pytz
 
 
 class BaseScraper(ABC):
@@ -144,6 +145,7 @@ class BaseScraper(ABC):
         # 生成唯一 ID (使用标题和时间的组合)
         news_id = f"{self.name}_{publish_time.strftime('%Y%m%d%H%M%S')}_{hash(title) % 100000}"
 
+        china_tz = pytz.timezone('Asia/Shanghai')
         return {
             'id': news_id,
             'title': title.strip(),
@@ -151,7 +153,7 @@ class BaseScraper(ABC):
             'url': url,
             'publish_time': publish_time.isoformat(),
             'source': self.name,
-            'scraped_at': datetime.now().isoformat(),
+            'scraped_at': datetime.now(china_tz).isoformat(),
             'extra': extra or {}
         }
 

@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from bs4 import BeautifulSoup
+import pytz
 
 try:
     from playwright.sync_api import sync_playwright, expect
@@ -135,6 +136,7 @@ class BrowserScraper(ABC):
         # 生成唯一 ID
         news_id = f"{self.name}_{publish_time.strftime('%Y%m%d%H%M%S')}_{hash(title) % 100000}"
 
+        china_tz = pytz.timezone('Asia/Shanghai')
         return {
             'id': news_id,
             'title': title.strip(),
@@ -142,7 +144,7 @@ class BrowserScraper(ABC):
             'url': url,
             'publish_time': publish_time.isoformat(),
             'source': self.name,
-            'scraped_at': datetime.now().isoformat(),
+            'scraped_at': datetime.now(china_tz).isoformat(),
             'extra': extra or {}
         }
 

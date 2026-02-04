@@ -2,8 +2,10 @@ name: A股每日新闻总结
 
 on:
   schedule:
-    # 北京时间 21:30 = UTC 13:30
-    - cron: '30 13 * * *'
+    # 北京时间 08:30 = UTC 00:30
+    - cron: '30 0 * * *'
+    # 北京时间 21:00 = UTC 13:00
+    - cron: '0 13 * * *'
 
   # 支持手动触发
   workflow_dispatch:
@@ -86,6 +88,7 @@ jobs:
 
       - name: 运行每日总结
         env:
+          TZ: Asia/Shanghai
           EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
