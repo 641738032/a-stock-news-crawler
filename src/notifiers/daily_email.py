@@ -170,7 +170,29 @@ class DailySummaryEmailNotifier(EmailNotifier):
             '.news-link { display: inline-block; color: #667eea; text-decoration: none; font-size: 12px; }',
             '.news-link:hover { text-decoration: underline; }',
             '.more-news { color: #999; font-size: 12px; font-style: italic; padding: 10px 0; }',
-            '.footer { padding: 20px; background-color: #f9f9f9; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 12px; }',
+            '.hotspot-section { padding: 20px; background-color: #fff8f0; border-left: 4px solid #ff6b6b; margin: 20px 0; }',
+            '.hotspot-section h2 { margin: 0 0 15px 0; font-size: 18px; color: #ff6b6b; }',
+            '.hotspot-list { }',
+            '.hotspot-item { padding: 12px 0; border-bottom: 1px solid #ffe0d6; display: flex; gap: 10px; }',
+            '.hotspot-item:last-child { border-bottom: none; }',
+            '.hotspot-rank { color: #ff6b6b; font-weight: bold; font-size: 16px; min-width: 30px; }',
+            '.hotspot-content { flex: 1; }',
+            '.hotspot-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; font-weight: bold; }',
+            '.hotspot-snippet { color: #666; font-size: 13px; line-height: 1.6; margin-bottom: 8px; }',
+            '.hotspot-meta { display: flex; gap: 15px; font-size: 12px; }',
+            '.hotspot-score { color: #ff6b6b; }',
+            '.hotspot-score::before { content: "热度: "; color: #999; }',
+            '.hotspot-link { color: #667eea; text-decoration: none; }',
+            '.hotspot-link:hover { text-decoration: underline; }',
+            '.highlights-section { padding: 20px; background-color: #f0f8ff; border-left: 4px solid #667eea; margin: 20px 0; }',
+            '.highlights-section h2 { margin: 0 0 15px 0; font-size: 18px; color: #667eea; }',
+            '.highlight-item { padding: 12px 0; border-bottom: 1px solid #d6e8ff; }',
+            '.highlight-item:last-child { border-bottom: none; }',
+            '.highlight-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; font-weight: bold; }',
+            '.highlight-reason { color: #667eea; font-size: 13px; margin-bottom: 8px; }',
+            '.highlight-reason::before { content: "💡 "; }',
+            '.highlight-link { color: #667eea; text-decoration: none; font-size: 12px; }',
+            '.highlight-link:hover { text-decoration: underline; }',
             '.footer p { margin: 5px 0; }',
             '@media only screen and (max-width: 600px) {',
             '  .stats-grid { grid-template-columns: 1fr; }',
@@ -194,7 +216,13 @@ class DailySummaryEmailNotifier(EmailNotifier):
         # 2. 概览卡片
         html_lines.extend(self._build_overview_section(classified_news))
 
-        # 3. 分类详情
+        # 3. 热点列表（Top 5-10）
+        html_lines.extend(self._build_hotspot_section(classified_news))
+
+        # 4. 值得关注（Highlights）
+        html_lines.extend(self._build_highlights_section(classified_news))
+
+        # 5. 分类详情
         html_lines.append('<div class="content">')
         for category, news_list in classified_news.items():
             html_lines.extend(self._build_category_section(category, news_list))
@@ -251,6 +279,118 @@ class DailySummaryEmailNotifier(EmailNotifier):
 
         html_lines.extend([
             '</div>',
+            '</div>',
+        ])
+
+        return html_lines
+
+    def _build_hotspot_section(self, classified_news: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+        """
+        构建热点列表区块（Top 5-10）
+
+        Args:
+            classified_news: 分类后的新闻字典
+
+        Returns:
+            HTML 行列表
+        """
+        from ..utils.summary_generator import SummaryGenerator
+
+        html_lines = [
+            '<div class="hotspot-section">',
+            '<h2>🔥 热点新闻 Top 10</h2>',
+            '<div class="hotspot-list">',
+        ]
+
+        # 收集所有新闻并生成摘要
+        all_news = []
+        for category, news_list in classified_news.items():
+            all_news.extend(news_list)
+
+        # 生成摘要并排序
+        summary_generator = SummaryGenerator()
+        summaries = summary_generator.generate_summaries(all_news)
+
+        # 显示前10条
+        for idx, summary in enumerate(summaries[:10], 1):
+            title = summary.title
+            url = summary.url
+            score = summary.score
+            snippet = summary.snippet
+
+            url_html = f'<a href="{url}" class="hotspot-link" target="_blank">查看详情</a>' if url else ''
+
+            html_lines.append(
+                f'<div class="hotspot-item">'
+                f'<span class="hotspot-rank">{idx}</span>'
+                f'<div class="hotspot-content">'
+                f'<div class="hotspot-title">{title}</div>'
+                f'<div class="hotspot-snippet">{snippet}</div>'
+                f'<div class="hotspot-meta">'
+                f'<span class="hotspot-score">{score:.0f}</span>'
+                f'{url_html}'
+                f'</div>'
+                f'</div>'
+                f'</div>'
+            )
+
+        html_lines.extend([
+            '</div>',
+            '</div>',
+        ])
+
+        return html_lines
+
+    def _build_highlights_section(self, classified_news: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+        """
+        构建值得关注区块（Highlights）
+
+        Args:
+            classified_news: 分类后的新闻字典
+
+        Returns:
+            HTML 行列表
+        """
+        from ..utils.summary_generator import SummaryGenerator
+
+        html_lines = [
+            '<div class="highlights-section">',
+            '<h2>💡 值得关注</h2>',
+        ]
+
+        # 收集所有新闻并生成摘要
+        all_news = []
+        for category, news_list in classified_news.items():
+            all_news.extend(news_list)
+
+        # 生成摘要并排序
+        summary_generator = SummaryGenerator()
+        summaries = summary_generator.generate_summaries(all_news)
+
+        # 选择热度最高的3条
+        highlights = summaries[:3]
+
+        if not highlights:
+            html_lines.append('<p>暂无特别重要的新闻</p>')
+        else:
+            for summary in highlights:
+                title = summary.title
+                url = summary.url
+                reason = summary.reason or summary.category
+                snippet = summary.snippet
+
+                url_html = f'<a href="{url}" class="highlight-link" target="_blank">查看详情</a>' if url else ''
+
+                html_lines.append(
+                    f'<div class="highlight-item">'
+                    f'<div class="highlight-title">{title}</div>'
+                    f'<div class="highlight-reason">{reason}</div>'
+                    f'<div class="highlight-snippet">{snippet}</div>'
+                    f'{url_html}'
+                    f'</div>'
+                )
+
+        html_lines.extend([
             '</div>',
         ])
 
