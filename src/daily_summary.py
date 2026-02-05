@@ -109,25 +109,13 @@ class DailySummaryApp:
                 self.logger.warning("财联社数据为空，跳过总结")
                 return
 
-            # 2. 确定当前时间段并过滤新闻
+            # 2. 过滤新闻（不限制时间）
             china_tz = pytz.timezone('Asia/Shanghai')
             now_china = datetime.now(china_tz)
-            current_hour = now_china.hour
 
-            # 判断当前是早上 08:30 还是晚上 21:00
-            # 早上 08:30 (允许 08:00-09:00 范围内执行)
-            if 8 <= current_hour < 9:
-                self.logger.info("当前时间段: 早上 08:30 (发送前一天 21:00 至今天 08:30 的新闻)")
-                filtered_news = self._filter_news_morning(all_news, now_china)
-                period_name = "前一天晚上21:00-今天早上08:30"
-            # 晚上 21:00 (允许 20:30-21:30 范围内执行)
-            elif 20 <= current_hour < 22:
-                self.logger.info("当前时间段: 晚上 21:00 (发送今天 08:30 至晚上 21:00 的新闻)")
-                filtered_news = self._filter_news_evening(all_news, now_china)
-                period_name = "今天早上08:30-晚上21:00"
-            else:
-                self.logger.warning(f"当前时间 {now_china.strftime('%H:%M')} 不在预定的总结时间段内 (08:30 或 21:00)")
-                return
+            # 直接使用当天的所有新闻
+            filtered_news = self._filter_today_news(all_news)
+            period_name = "当天全部新闻"
 
             self.logger.info(f"过滤后新闻: {len(filtered_news)} 条 ({period_name})")
 
