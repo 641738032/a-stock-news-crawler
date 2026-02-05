@@ -75,15 +75,17 @@ jobs:
 
       - name: 提交数据变更
         run: |
-          # 检查是否有变更
-          echo "检查 data/ 目录变更..."
-          git diff --name-only
+          # 添加所有 data/ 目录下的文件（包括新文件）
+          git add data/
 
-          if git diff --quiet; then
-            echo "没有数据变更"
+          # 检查是否有变更（包括新文件）
+          if git diff --staged --quiet; then
+            echo "❌ 没有数据变更"
           else
-            echo "发现数据变更，准备提交..."
-            git add data/
+            echo "✅ 发现数据变更，准备提交..."
+            echo "变更的文件:"
+            git diff --staged --name-only
+
             git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S')"
             echo "准备 push 数据..."
             git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
