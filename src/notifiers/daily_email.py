@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 import pytz
 from .email import EmailNotifier
 from ..utils.classifier import DAILY_CATEGORIES
+from ..utils.summary_generator import SummaryGenerator
 
 
 class DailySummaryEmailNotifier(EmailNotifier):
@@ -159,7 +160,13 @@ class DailySummaryEmailNotifier(EmailNotifier):
             '.news-item:last-child { border-bottom: none; }',
             '.news-time { color: #999; font-size: 12px; white-space: nowrap; min-width: 50px; }',
             '.news-content { flex: 1; }',
-            '.news-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; }',
+            '.news-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; font-weight: bold; }',
+            '.news-snippet { color: #666; font-size: 13px; line-height: 1.6; margin-bottom: 8px; }',
+            '.news-meta { display: flex; gap: 15px; margin-bottom: 8px; font-size: 12px; }',
+            '.news-tags { color: #667eea; }',
+            '.news-tags::before { content: "标签: "; color: #999; }',
+            '.news-reason { color: #ff6b6b; }',
+            '.news-reason::before { content: "理由: "; color: #999; }',
             '.news-link { display: inline-block; color: #667eea; text-decoration: none; font-size: 12px; }',
             '.news-link:hover { text-decoration: underline; }',
             '.more-news { color: #999; font-size: 12px; font-style: italic; padding: 10px 0; }',
@@ -278,44 +285,41 @@ class DailySummaryEmailNotifier(EmailNotifier):
             '<div class="news-list">',
         ]
 
-        # 按发布时间倒序排列（最新的在前）
-        sorted_news = sorted(
-            news_list,
-            key=lambda x: x.get('publish_time', ''),
-            reverse=True
-        )
+        # 生成摘要
+        summary_generator = SummaryGenerator()
+        summaries = summary_generator.generate_summaries(news_list)
 
         # 显示前 max_display 条
-        for news in sorted_news[:max_display]:
-            title = news.get('title', '无标题')
-            url = news.get('url', '')
-            publish_time = news.get('publish_time', '')
-
-            # 提取时间部分
-            time_str = ''
-            if publish_time:
-                try:
-                    dt = datetime.fromisoformat(publish_time)
-                    time_str = dt.strftime('%H:%M')
-                except:
-                    pass
+        for idx, summary in enumerate(summaries[:max_display], 1):
+            title = summary.title
+            url = summary.url
+            time_str = summary.get_time_str()
+            tags_str = summary.get_tags_str()
+            snippet = summary.snippet
+            reason = summary.reason
 
             url_html = f'<a href="{url}" class="news-link" target="_blank">查看详情</a>' if url else ''
 
+            # 构建新闻项 HTML
             html_lines.append(
                 f'<div class="news-item">'
                 f'<span class="news-time">{time_str}</span>'
                 f'<div class="news-content">'
-                f'<div class="news-title">{title}</div>'
+                f'<div class="news-title">{idx}. {title}</div>'
+                f'<div class="news-snippet">{snippet}</div>'
+                f'<div class="news-meta">'
+                f'<span class="news-tags">{tags_str}</span>'
+                f'<span class="news-reason">{reason}</span>'
+                f'</div>'
                 f'{url_html}'
                 f'</div>'
                 f'</div>'
             )
 
         # 如果超过 max_display 条，显示提示
-        if len(sorted_news) > max_display:
+        if len(summaries) > max_display:
             html_lines.append(
-                f'<div class="more-news">本分类共 {len(sorted_news)} 条，仅展示前 {max_display} 条</div>'
+                f'<div class="more-news">本分类共 {len(summaries)} 条，仅展示前 {max_display} 条</div>'
             )
 
         html_lines.extend([
