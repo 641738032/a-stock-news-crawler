@@ -73,42 +73,19 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Commit and push data files (create branch)
-        id: commit
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 提交数据变更
         run: |
-          # 生成分支名并导出
-          BRANCH="data-updates/$(date +'%Y%m%d%H%M%S')"
-          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          # 检查是否有变更
+          echo "检查 data/ 目录变更..."
+          git diff --name-only
 
-          # 新建分支
-          git checkout -b "${BRANCH}"
-
-          # 添加文件（按需调整路径）
-          git add data/ || true
-
-          # 如果没有变更，输出 committed=false
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            echo "committed=false" >> $GITHUB_OUTPUT
+          if git diff --quiet; then
+            echo "没有数据变更"
           else
-            git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S') [skip ci]"
-            # push 到远端新分支
-            git push --set-upstream origin HEAD
-            echo "committed=true" >> $GITHUB_OUTPUT
+            echo "发现数据变更，准备提交..."
+            git add data/
+            git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S')"
+            echo "准备 push 数据..."
+            git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+            echo "✅ 数据已成功 push"
           fi
-
-      - name: Create Pull Request for data changes
-        if: steps.commit.outputs.committed == 'true'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.commit.outputs.branch }}
-          base: main
-          title: chore: 更新爬虫数据
-          body: |
-            自动化提交：包含爬虫生成的 data/ 目录。
-            由 workflow 生成，运行ID: ${{ github.run_id }}
-          labels: automated,data
-          commit-message: chore: 更新爬虫数据 (from workflow ${{ github.run_id }}) [skip ci]
