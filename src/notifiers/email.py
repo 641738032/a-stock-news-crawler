@@ -121,78 +121,143 @@ class EmailNotifier(BaseNotifier):
             HTML 字符串
         """
         from datetime import datetime
+        import pytz
 
         html_lines = [
             '<!DOCTYPE html>',
             '<html>',
             '<head>',
             '<meta charset="utf-8">',
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
             '<style>',
-            'body { font-family: Arial, sans-serif; color: #333; }',
-            'h1 { color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px; }',
-            'h2 { color: #ff6600; margin-top: 20px; }',
-            '.summary { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ff6600; margin: 20px 0; }',
-            '.summary-item { margin: 8px 0; }',
-            'table { width: 100%; border-collapse: collapse; margin-top: 20px; }',
-            'th { background-color: #0066cc; color: white; padding: 10px; text-align: left; }',
-            'td { padding: 10px; border-bottom: 1px solid #ddd; }',
-            'tr:hover { background-color: #f5f5f5; }',
-            'a { color: #0066cc; text-decoration: none; }',
-            'a:hover { text-decoration: underline; }',
-            '.time { color: #999; font-size: 12px; }',
-            '.footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }',
+            'body { font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }',
+            '.container { max-width: 800px; margin: 0 auto; background-color: white; }',
+            '.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }',
+            '.header h1 { margin: 0 0 10px 0; font-size: 28px; }',
+            '.header p { margin: 5px 0; font-size: 14px; opacity: 0.9; }',
+            '.hotspot-section { padding: 20px; background-color: #fff8f0; border-left: 4px solid #ff6b6b; margin: 20px 0; }',
+            '.hotspot-section h2 { margin: 0 0 15px 0; font-size: 18px; color: #ff6b6b; }',
+            '.hotspot-list { }',
+            '.hotspot-item { padding: 12px 0; border-bottom: 1px solid #ffe0d6; display: flex; gap: 10px; }',
+            '.hotspot-item:last-child { border-bottom: none; }',
+            '.hotspot-rank { color: #ff6b6b; font-weight: bold; font-size: 16px; min-width: 30px; }',
+            '.hotspot-content { flex: 1; }',
+            '.hotspot-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; font-weight: bold; }',
+            '.hotspot-snippet { color: #666; font-size: 13px; line-height: 1.6; margin-bottom: 8px; }',
+            '.hotspot-meta { display: flex; gap: 15px; font-size: 12px; }',
+            '.hotspot-score { color: #ff6b6b; }',
+            '.hotspot-score::before { content: "热度: "; color: #999; }',
+            '.hotspot-link { color: #667eea; text-decoration: none; }',
+            '.hotspot-link:hover { text-decoration: underline; }',
+            '.content { padding: 20px; }',
+            '.news-item { padding: 12px 0; border-bottom: 1px solid #eee; display: flex; gap: 10px; }',
+            '.news-item:last-child { border-bottom: none; }',
+            '.news-time { color: #999; font-size: 12px; white-space: nowrap; min-width: 50px; }',
+            '.news-content { flex: 1; }',
+            '.news-title { color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 5px; font-weight: bold; }',
+            '.news-snippet { color: #666; font-size: 13px; line-height: 1.6; margin-bottom: 8px; }',
+            '.news-meta { display: flex; gap: 15px; margin-bottom: 8px; font-size: 12px; }',
+            '.news-tags { color: #667eea; }',
+            '.news-tags::before { content: "标签: "; color: #999; }',
+            '.news-link { display: inline-block; color: #667eea; text-decoration: none; font-size: 12px; }',
+            '.news-link:hover { text-decoration: underline; }',
+            '.footer { padding: 20px; border-top: 1px solid #eee; color: #999; font-size: 12px; text-align: center; }',
+            '.footer p { margin: 5px 0; }',
+            '@media only screen and (max-width: 600px) {',
+            '  .news-item { flex-direction: column; gap: 5px; }',
+            '  .news-time { min-width: auto; }',
+            '}',
             '</style>',
             '</head>',
             '<body>',
-            f'<h1>📰 A股新闻播报 - {source}</h1>',
-            f'<p>共 <strong>{len(news_list)}</strong> 条新闻</p>',
+            '<div class="container">',
+            '<div class="header">',
+            '<h1>📰 A股新闻播报</h1>',
+            f'<p>来源：{source} | 共 {len(news_list)} 条新闻</p>',
+            '</div>',
         ]
 
-        # 添加热点总结
-        summary = self._generate_summary(news_list)
-        if summary:
-            html_lines.append('<div class="summary">')
-            html_lines.append('<h2>🔥 热点总结</h2>')
-            for item in summary:
-                html_lines.append(f'<div class="summary-item">{item}</div>')
-            html_lines.append('</div>')
+        # 生成摘要并排序
+        from ..utils.summary_generator import SummaryGenerator
+        summary_generator = SummaryGenerator()
+        summaries = summary_generator.generate_summaries(news_list)
 
+        # 添加热点列表（Top 10）
         html_lines.extend([
-            '<table>',
-            '<tr>',
-            '<th>时间</th>',
-            '<th>标题</th>',
-            '<th>链接</th>',
-            '</tr>',
+            '<div class="hotspot-section">',
+            '<h2>🔥 热点新闻 Top 10</h2>',
+            '<div class="hotspot-list">',
         ])
 
-        for news in news_list[:50]:  # 最多显示 50 条
-            title = news.get('title', '无标题')
-            url = news.get('url', '')
-            publish_time = news.get('publish_time', '')
+        for idx, summary in enumerate(summaries[:10], 1):
+            title = summary.title
+            url = summary.url
+            score = summary.score
+            snippet = summary.snippet
 
-            # 提取时间部分
-            time_str = ''
-            if publish_time:
-                try:
-                    dt = datetime.fromisoformat(publish_time)
-                    time_str = dt.strftime('%H:%M')
-                except:
-                    pass
+            url_html = f'<a href="{url}" class="hotspot-link" target="_blank">查看详情</a>' if url else ''
 
-            url_html = f'<a href="{url}" target="_blank">查看</a>' if url else '-'
-
-            html_lines.append('<tr>')
-            html_lines.append(f'<td class="time">{time_str}</td>')
-            html_lines.append(f'<td>{title}</td>')
-            html_lines.append(f'<td>{url_html}</td>')
-            html_lines.append('</tr>')
+            html_lines.append(
+                f'<div class="hotspot-item">'
+                f'<span class="hotspot-rank">{idx}</span>'
+                f'<div class="hotspot-content">'
+                f'<div class="hotspot-title">{title}</div>'
+                f'<div class="hotspot-snippet">{snippet}</div>'
+                f'<div class="hotspot-meta">'
+                f'<span class="hotspot-score">{score:.0f}</span>'
+                f'{url_html}'
+                f'</div>'
+                f'</div>'
+                f'</div>'
+            )
 
         html_lines.extend([
-            '</table>',
+            '</div>',
+            '</div>',
+        ])
+
+        # 添加所有新闻列表
+        html_lines.extend([
+            '<div class="content">',
+            '<h2>📋 全部新闻</h2>',
+            '<div class="news-list">',
+        ])
+
+        for idx, summary in enumerate(summaries[:50], 1):  # 最多显示 50 条
+            title = summary.title
+            url = summary.url
+            time_str = summary.get_time_str()
+            tags_str = summary.get_tags_str()
+            snippet = summary.snippet
+
+            url_html = f'<a href="{url}" class="news-link" target="_blank">查看详情</a>' if url else ''
+
+            html_lines.append(
+                f'<div class="news-item">'
+                f'<span class="news-time">{time_str}</span>'
+                f'<div class="news-content">'
+                f'<div class="news-title">{idx}. {title}</div>'
+                f'<div class="news-snippet">{snippet}</div>'
+                f'<div class="news-meta">'
+                f'<span class="news-tags">{tags_str}</span>'
+                f'</div>'
+                f'{url_html}'
+                f'</div>'
+                f'</div>'
+            )
+
+        html_lines.extend([
+            '</div>',
+            '</div>',
+        ])
+
+        # 页脚
+        china_tz = pytz.timezone('Asia/Shanghai')
+        html_lines.extend([
             '<div class="footer">',
-            f'<p>发送时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>',
-            '<p>这是一封自动生成的邮件，请勿回复。</p>',
+            f'<p>发送时间：{datetime.now(china_tz).strftime("%Y-%m-%d %H:%M:%S")}</p>',
+            '<p>数据来源：财联社 | 自动生成，仅供参考</p>',
+            '</div>',
             '</div>',
             '</body>',
             '</html>',
@@ -200,55 +265,3 @@ class EmailNotifier(BaseNotifier):
 
         return '\n'.join(html_lines)
 
-    def _generate_summary(self, news_list: List[Dict[str, Any]]) -> List[str]:
-        """
-        生成新闻热点总结
-
-        Args:
-            news_list: 新闻列表
-
-        Returns:
-            总结行列表
-        """
-        if not news_list:
-            return []
-
-        # 关键词和板块映射
-        sector_keywords = {
-            '芯片': ['芯片', '半导体', 'IC', '集成电路', '光刻', '制程'],
-            '新能源': ['新能源', '电动车', 'EV', '电池', '光伏', '风电', '储能'],
-            '医药': ['医药', '制药', '生物', '疫苗', '药物', '医疗'],
-            '房地产': ['房地产', '地产', '房企', '楼市', '房价', '开发商'],
-            '金融': ['银行', '保险', '证券', '基金', '金融', '理财'],
-            '消费': ['消费', '零售', '电商', '餐饮', '服装', '家电'],
-            '科技': ['科技', '互联网', '软件', '云计算', '大数据', 'AI', '人工智能'],
-            '制造': ['制造', '工业', '机械', '汽车', '装备'],
-            '资源': ['煤炭', '石油', '有色', '钢铁', '资源'],
-        }
-
-        # 统计各板块出现次数
-        sector_count = {}
-        sector_examples = {}
-
-        for news in news_list:
-            title = news.get('title', '').lower()
-            content = news.get('content', '').lower()
-            text = title + content
-
-            for sector, keywords in sector_keywords.items():
-                for keyword in keywords:
-                    if keyword.lower() in text:
-                        sector_count[sector] = sector_count.get(sector, 0) + 1
-                        if sector not in sector_examples:
-                            sector_examples[sector] = title[:40]
-                        break
-
-        # 获取前3个热点板块
-        sorted_sectors = sorted(sector_count.items(), key=lambda x: x[1], reverse=True)[:3]
-
-        summary_lines = []
-        for idx, (sector, count) in enumerate(sorted_sectors, 1):
-            example = sector_examples.get(sector, '')
-            summary_lines.append(f"{idx}. <strong>{sector}</strong> ({count}条) - {example}...")
-
-        return summary_lines
