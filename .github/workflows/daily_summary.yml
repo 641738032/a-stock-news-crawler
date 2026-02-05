@@ -86,6 +86,18 @@ jobs:
               exit(1)
           PYEOF
 
+      - name: 运行爬虫（确保有数据）
+        env:
+          TZ: Asia/Shanghai
+          WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
+          EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+        run: |
+          python src/main.py
+
       - name: 运行每日总结
         env:
           TZ: Asia/Shanghai

@@ -8,6 +8,9 @@ on:
 
   # 支持手动触发
   workflow_dispatch:
+    
+permissions:
+  contents: write  # 需要写入仓库的权限用于创建分支和提交
 
 jobs:
   crawler:
@@ -52,7 +55,7 @@ jobs:
           else
             git add data/
             git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S')"
-            git push
+            git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           fi
 
       - name: 上传日志
