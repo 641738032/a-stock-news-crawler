@@ -48,8 +48,9 @@ config.local.yaml
 .env.local
 
 # Data files (keep structure but ignore actual data)
-data/*.json
-data/*.csv
+# 注意：data/*.json 和 data/*.csv 被注释掉了，因为我们需要保存爬虫数据到仓库
+# data/*.json
+# data/*.csv
 data/history/
 
 # OS
