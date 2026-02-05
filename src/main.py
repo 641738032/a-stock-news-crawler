@@ -30,7 +30,9 @@ class CrawlerApp:
         """
         self.config = config or self._load_config()
         self.logger = Logger.get_logger()
-        self.data_manager = DataManager(data_dir='data')
+        # 使用绝对路径确保数据保存到项目根目录
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        self.data_manager = DataManager(data_dir=data_dir)
 
         # 初始化爬虫 (使用 API 版本 - 直接调用 API)
         self.scrapers = {

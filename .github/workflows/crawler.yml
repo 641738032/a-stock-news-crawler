@@ -42,7 +42,28 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
         run: |
+          echo "当前工作目录: $(pwd)"
+          echo "目录内容:"
+          ls -la
           python src/main.py
+          echo ""
+          echo "爬虫运行后的目录内容:"
+          ls -la
+
+      - name: 诊断数据文件
+        run: |
+          echo "=== 检查 data 目录 ==="
+          ls -lh data/ || echo "data 目录不存在"
+          echo ""
+          echo "=== 检查财联社数据文件 ==="
+          if [ -f "data/财联社_news.json" ]; then
+            echo "✓ 文件存在"
+            echo "文件大小: $(wc -c < data/财联社_news.json) 字节"
+            echo "前 5 条新闻:"
+            python3 -c "import json; data = json.load(open('data/财联社_news.json')); print(f'总共 {len(data)} 条新闻'); print(f'最新: {data[0][\"publish_time\"] if data else \"无\"}')"
+          else
+            echo "✗ 文件不存在"
+          fi
 
       - name: 提交数据变更
         run: |
@@ -50,12 +71,18 @@ jobs:
           git config --local user.name "GitHub Action"
 
           # 检查是否有变更
+          echo "检查 data/ 目录变更..."
+          git diff --name-only
+
           if git diff --quiet; then
             echo "没有数据变更"
           else
+            echo "发现数据变更，准备提交..."
             git add data/
             git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S')"
-            git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            echo "准备 push 数据..."
+            git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+            echo "✅ 数据已成功 push"
           fi
 
       - name: 上传日志

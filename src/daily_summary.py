@@ -23,7 +23,9 @@ class DailySummaryApp:
 
     def __init__(self):
         """初始化应用"""
-        self.data_manager = DataManager(data_dir='data')
+        # 使用绝对路径确保数据读取从项目根目录
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+        self.data_manager = DataManager(data_dir=data_dir)
         self.logger = Logger.get_logger()
         self.notifiers = self._init_notifiers()
 
