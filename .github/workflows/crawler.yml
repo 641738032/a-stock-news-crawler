@@ -1,9 +1,9 @@
+# A股新闻爬虫定时任务（已适配：在有数据变更时创建新分支并提交，随后创建 PR）
 name: A股新闻爬虫定时任务
 
 on:
   schedule:
     # 每小时执行一次 (UTC 时间，北京时间需要 -8 小时)
-    # 北京时间每小时执行，需要在 UTC 时间的每小时执行
     - cron: '0 * * * *'
 
   # 支持手动触发
@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout 代码
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
       - name: 设置 Python 环境
         uses: actions/setup-python@v4
@@ -65,30 +68,47 @@ jobs:
             echo "✗ 文件不存在"
           fi
 
-      - name: 提交数据变更
+      - name: Configure git user
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # 检查是否有变更
-          echo "检查 data/ 目录变更..."
-          git diff --name-only
+      - name: Commit and push data files (create branch)
+        id: commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 生成分支名并导出
+          BRANCH="data-updates/$(date +'%Y%m%d%H%M%S')"
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
 
-          if git diff --quiet; then
-            echo "没有数据变更"
+          # 新建分支
+          git checkout -b "${BRANCH}"
+
+          # 添加文件（按需调整路径）
+          git add data/ || true
+
+          # 如果没有变更，输出 committed=false
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
           else
-            echo "发现数据变更，准备提交..."
-            git add data/
-            git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S')"
-            echo "准备 push 数据..."
-            git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
-            echo "✅ 数据已成功 push"
+            git commit -m "chore: 更新爬虫数据 $(date +'%Y-%m-%d %H:%M:%S') [skip ci]"
+            # push 到远端新分支
+            git push --set-upstream origin HEAD
+            echo "committed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: 上传日志
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Create Pull Request for data changes
+        if: steps.commit.outputs.committed == 'true'
+        uses: peter-evans/create-pull-request@v5
         with:
-          name: crawler-logs
-          path: logs/
-          retention-days: 7
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.commit.outputs.branch }}
+          base: main
+          title: chore: 更新爬虫数据
+          body: |
+            自动化提交：包含爬虫生成的 data/ 目录。
+            由 workflow 生成，运行ID: ${{ github.run_id }}
+          labels: automated,data
+          commit-message: chore: 更新爬虫数据 (from workflow ${{ github.run_id }}) [skip ci]
