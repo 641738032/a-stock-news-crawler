@@ -21,7 +21,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
         total_count: int,
-        period_name: str = "当天"
+        period_name: str = "当天",
+        watchlist_news: List[Dict[str, Any]] = None
     ) -> bool:
         """
         发送每日总结邮件
@@ -45,7 +46,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
 
         try:
             # 构建邮件
-            msg = self._build_daily_email(classified_news, date_str, total_count, period_name)
+            msg = self._build_daily_email(classified_news, date_str, total_count, period_name, watchlist_news or [])
             print(f"[{self.name}] 邮件构建完成，大小: {len(msg.as_string())} 字节")
 
             # 连接 SMTP 服务器
@@ -85,7 +86,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
         total_count: int,
-        period_name: str = "当天"
+        period_name: str = "当天",
+        watchlist_news: List[Dict[str, Any]] = None
     ):
         """
         构建每日总结邮件
@@ -105,7 +107,7 @@ class DailySummaryEmailNotifier(EmailNotifier):
         msg['To'] = ', '.join(self.recipients)
 
         # 构建 HTML 内容
-        html_content = self._build_daily_html(classified_news, date_str, total_count, period_name)
+        html_content = self._build_daily_html(classified_news, date_str, total_count, period_name, watchlist_news or [])
 
         # 添加 HTML 部分
         html_part = MIMEText(html_content, 'html', 'utf-8')
@@ -118,7 +120,8 @@ class DailySummaryEmailNotifier(EmailNotifier):
         classified_news: Dict[str, List[Dict[str, Any]]],
         date_str: str,
         total_count: int,
-        period_name: str = "当天"
+        period_name: str = "当天",
+        watchlist_news: List[Dict[str, Any]] = None
     ) -> str:
         """
         构建每日总结 HTML 邮件内容
@@ -216,7 +219,11 @@ class DailySummaryEmailNotifier(EmailNotifier):
         # 2. 概览卡片
         html_lines.extend(self._build_overview_section(classified_news))
 
-        # 3. 热点列表（Top 5-10）
+        # 3. 持股仓关注
+        if watchlist_news:
+            html_lines.extend(self._build_watchlist_section(watchlist_news))
+
+        # 4. 热点列表（Top 5-10）
         html_lines.extend(self._build_hotspot_section(classified_news))
 
         # 4. 值得关注（Highlights）
@@ -241,6 +248,33 @@ class DailySummaryEmailNotifier(EmailNotifier):
         ])
 
         return '\n'.join(html_lines)
+
+    def _build_watchlist_section(self, watchlist_news: List[Dict[str, Any]]) -> List[str]:
+        """构建持股仓关注区块"""
+        from ..utils.summary_generator import SummaryGenerator
+
+        html_lines = [
+            '<div style="padding:20px;background-color:#f0fff4;border-left:4px solid #27ae60;margin:20px 0;">',
+            '<h2 style="margin:0 0 15px 0;font-size:18px;color:#27ae60;">⭐ 持股仓关注</h2>',
+        ]
+
+        summary_generator = SummaryGenerator()
+        summaries = summary_generator.generate_summaries(watchlist_news)
+
+        for idx, s in enumerate(summaries, 1):
+            url_html = f'<a href="{s.url}" style="color:#667eea;text-decoration:none;font-size:12px;" target="_blank">查看详情</a>' if s.url else ''
+            time_str = s.get_time_str()
+            html_lines.append(
+                f'<div style="padding:10px 0;border-bottom:1px solid #c3e6cb;">'
+                f'<div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:4px;">{idx}. {s.title}</div>'
+                f'<div style="font-size:13px;color:#666;margin-bottom:6px;">{s.snippet}</div>'
+                f'<div style="font-size:12px;color:#999;margin-bottom:4px;">{time_str}</div>'
+                f'{url_html}'
+                f'</div>'
+            )
+
+        html_lines.append('</div>')
+        return html_lines
 
     def _build_overview_section(self, classified_news: Dict[str, List[Dict[str, Any]]]) -> List[str]:
         """

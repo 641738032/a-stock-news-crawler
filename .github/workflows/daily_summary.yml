@@ -106,6 +106,7 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          WATCHLIST_STOCKS: ${{ secrets.WATCHLIST_STOCKS }}
         run: |
           python src/daily_summary.py
 

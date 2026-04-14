@@ -14,6 +14,7 @@ from src.scrapers.xueqiu_scraper_improved import XueqiuScraperImproved
 from src.utils.data_manager import DataManager
 from src.utils.time_utils import TimeUtils, get_trading_status
 from src.utils.logger import Logger
+from src.utils.watchlist import parse_watchlist, filter_watchlist_news
 from src.notifiers.wechat import WeChatNotifier
 from src.notifiers.email import EmailNotifier
 
@@ -198,7 +199,8 @@ class CrawlerApp:
 
         # 推送通知
         if all_new_items:
-            self._send_notifications(all_new_items)
+            watchlist = parse_watchlist()
+            self._send_notifications(all_new_items, watchlist)
         else:
             self.logger.info("没有最近一小时的新内容，跳过推送")
 
@@ -210,7 +212,7 @@ class CrawlerApp:
         self.logger.info("爬虫运行完成")
         self.logger.info("=" * 50)
 
-    def _send_notifications(self, new_items: Dict[str, List[Dict[str, Any]]]):
+    def _send_notifications(self, new_items: Dict[str, List[Dict[str, Any]]], watchlist: list = None):
         """
         发送推送通知
 
@@ -220,9 +222,10 @@ class CrawlerApp:
         for source, news_list in new_items.items():
             self.logger.info(f"推送 {source} 的 {len(news_list)} 条新闻")
 
+            wl_news = filter_watchlist_news(news_list, watchlist or [])
             for notifier_name, notifier in self.notifiers.items():
                 try:
-                    success = notifier.send(news_list, source=source)
+                    success = notifier.send(news_list, source=source, watchlist_news=wl_news)
                     if not success:
                         self.logger.warning(f"{notifier_name} 推送失败")
                 except Exception as e:

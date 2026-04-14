@@ -44,6 +44,7 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          WATCHLIST_STOCKS: ${{ secrets.WATCHLIST_STOCKS }}
         run: |
           echo "当前工作目录: $(pwd)"
           echo "目录内容:"

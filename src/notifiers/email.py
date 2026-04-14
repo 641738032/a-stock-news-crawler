@@ -40,7 +40,7 @@ class EmailNotifier(BaseNotifier):
         self.recipients = recipients if isinstance(recipients, list) else [recipients]
         self.use_tls = use_tls
 
-    def send(self, news_list: List[Dict[str, Any]], source: str = '') -> bool:
+    def send(self, news_list: List[Dict[str, Any]], source: str = '', watchlist_news: List[Dict[str, Any]] = None) -> bool:
         """
         发送邮件
 
@@ -61,7 +61,7 @@ class EmailNotifier(BaseNotifier):
 
         try:
             # 构建邮件
-            msg = self._build_email(news_list, source)
+            msg = self._build_email(news_list, source, watchlist_news or [])
 
             # 连接 SMTP 服务器
             if self.use_tls:
@@ -84,7 +84,7 @@ class EmailNotifier(BaseNotifier):
             print(f"[{self.name}] 推送异常: {e}")
             return False
 
-    def _build_email(self, news_list: List[Dict[str, Any]], source: str = '') -> MIMEMultipart:
+    def _build_email(self, news_list: List[Dict[str, Any]], source: str = '', watchlist_news: List[Dict[str, Any]] = None) -> MIMEMultipart:
         """
         构建邮件
 
@@ -101,7 +101,7 @@ class EmailNotifier(BaseNotifier):
         msg['To'] = ', '.join(self.recipients)
 
         # 构建 HTML 内容
-        html_content = self._build_html(news_list, source)
+        html_content = self._build_html(news_list, source, watchlist_news or [])
 
         # 添加 HTML 部分
         html_part = MIMEText(html_content, 'html', 'utf-8')
@@ -109,7 +109,7 @@ class EmailNotifier(BaseNotifier):
 
         return msg
 
-    def _build_html(self, news_list: List[Dict[str, Any]], source: str = '') -> str:
+    def _build_html(self, news_list: List[Dict[str, Any]], source: str = '', watchlist_news: List[Dict[str, Any]] = None) -> str:
         """
         构建 HTML 邮件内容
 
@@ -181,6 +181,24 @@ class EmailNotifier(BaseNotifier):
         from ..utils.summary_generator import SummaryGenerator
         summary_generator = SummaryGenerator()
         summaries = summary_generator.generate_summaries(news_list)
+
+        # 持股仓关注模块
+        if watchlist_news:
+            html_lines.extend([
+                '<div style="padding:20px;background-color:#f0fff4;border-left:4px solid #27ae60;margin:20px 0;">',
+                '<h2 style="margin:0 0 15px 0;font-size:18px;color:#27ae60;">⭐ 持股仓关注</h2>',
+            ])
+            wl_summaries = summary_generator.generate_summaries(watchlist_news)
+            for idx, s in enumerate(wl_summaries, 1):
+                url_html = f'<a href="{s.url}" style="color:#667eea;text-decoration:none;font-size:12px;" target="_blank">查看详情</a>' if s.url else ''
+                html_lines.append(
+                    f'<div style="padding:10px 0;border-bottom:1px solid #c3e6cb;">'
+                    f'<div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:4px;">{idx}. {s.title}</div>'
+                    f'<div style="font-size:13px;color:#666;margin-bottom:6px;">{s.snippet}</div>'
+                    f'{url_html}'
+                    f'</div>'
+                )
+            html_lines.append('</div>')
 
         # 添加热点列表（Top 10）
         html_lines.extend([

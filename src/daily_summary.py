@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.utils.data_manager import DataManager
 from src.utils.logger import Logger
 from src.utils.classifier import classify_news_list
+from src.utils.watchlist import parse_watchlist, filter_watchlist_news
 from src.notifiers.daily_email import DailySummaryEmailNotifier
 
 
@@ -129,13 +130,19 @@ class DailySummaryApp:
             classified_news = classify_news_list(filtered_news)
             self.logger.info(f"分类完成: {len(classified_news)} 个分类")
 
-            # 4. 生成统计信息
+            # 4. 持股仓过滤
+            watchlist = parse_watchlist()
+            watchlist_news = filter_watchlist_news(filtered_news, watchlist)
+            if watchlist_news:
+                self.logger.info(f"持股仓相关新闻: {len(watchlist_news)} 条")
+
+            # 5. 生成统计信息
             stats = self._generate_statistics(classified_news)
             self.logger.info(f"统计信息: {stats}")
 
-            # 5. 发送邮件
+            # 6. 发送邮件
             date_str = datetime.now(china_tz).strftime('%Y-%m-%d')
-            self._send_daily_summary(classified_news, len(filtered_news), date_str, period_name)
+            self._send_daily_summary(classified_news, len(filtered_news), date_str, period_name, watchlist_news)
 
             self.logger.info("=" * 50)
             self.logger.info("每日总结完成")
@@ -313,7 +320,8 @@ class DailySummaryApp:
         classified_news: Dict[str, List[Dict[str, Any]]],
         total_count: int,
         date_str: str,
-        period_name: str = "当天"
+        period_name: str = "当天",
+        watchlist_news: List[Dict[str, Any]] = None
     ):
         """
         发送每日总结
@@ -330,7 +338,7 @@ class DailySummaryApp:
 
         for notifier_name, notifier in self.notifiers.items():
             try:
-                success = notifier.send_daily_summary(classified_news, date_str, total_count, period_name)
+                success = notifier.send_daily_summary(classified_news, date_str, total_count, period_name, watchlist_news or [])
                 if not success:
                     self.logger.warning(f"{notifier_name} 推送失败")
             except Exception as e:
