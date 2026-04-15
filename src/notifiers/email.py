@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Any
 from .base import BaseNotifier
+from ..utils.watchlist import parse_watchlist, flatten_watchlist_tokens
 
 
 class EmailNotifier(BaseNotifier):
@@ -181,24 +182,11 @@ class EmailNotifier(BaseNotifier):
         from ..utils.summary_generator import SummaryGenerator
         summary_generator = SummaryGenerator()
         summaries = summary_generator.generate_summaries(news_list)
+        watchlist_tokens = flatten_watchlist_tokens(parse_watchlist())
 
         # 持股仓关注模块
-        if watchlist_news:
-            html_lines.extend([
-                '<div style="padding:20px;background-color:#f0fff4;border-left:4px solid #27ae60;margin:20px 0;">',
-                '<h2 style="margin:0 0 15px 0;font-size:18px;color:#27ae60;">⭐ 持股仓关注</h2>',
-            ])
-            wl_summaries = summary_generator.generate_summaries(watchlist_news)
-            for idx, s in enumerate(wl_summaries, 1):
-                url_html = f'<a href="{s.url}" style="color:#667eea;text-decoration:none;font-size:12px;" target="_blank">查看详情</a>' if s.url else ''
-                html_lines.append(
-                    f'<div style="padding:10px 0;border-bottom:1px solid #c3e6cb;">'
-                    f'<div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:4px;">{idx}. {s.title}</div>'
-                    f'<div style="font-size:13px;color:#666;margin-bottom:6px;">{s.snippet}</div>'
-                    f'{url_html}'
-                    f'</div>'
-                )
-            html_lines.append('</div>')
+        if watchlist_tokens:
+            html_lines.extend(self._build_watchlist_section(watchlist_tokens, watchlist_news or []))
 
         # 添加热点列表（Top 10）
         html_lines.extend([
@@ -283,3 +271,40 @@ class EmailNotifier(BaseNotifier):
 
         return '\n'.join(html_lines)
 
+    def _build_watchlist_section(self, watchlist_tokens: List[str], watchlist_news: List[Dict[str, Any]]) -> List[str]:
+        """构建持股仓关注区块（无命中时也展示）。"""
+        from ..utils.summary_generator import SummaryGenerator
+
+        tokens_text = '、'.join(watchlist_tokens)
+        html_lines = [
+            '<div style="padding:20px;background-color:#f0fff4;border-left:4px solid #27ae60;margin:20px 0;">',
+            '<h2 style="margin:0 0 12px 0;font-size:18px;color:#27ae60;">⭐ 持股仓关注</h2>',
+            f'<div style="font-size:12px;color:#2c3e50;margin-bottom:12px;">关注关键词：{tokens_text}</div>',
+        ]
+
+        if not watchlist_news:
+            html_lines.extend([
+                '<div style="font-size:13px;color:#666;background:#ffffff;padding:10px;border:1px dashed #c3e6cb;">',
+                '本期未命中持股仓相关新闻',
+                '</div>',
+                '</div>',
+            ])
+            return html_lines
+
+        summary_generator = SummaryGenerator()
+        wl_summaries = summary_generator.generate_summaries(watchlist_news)
+        for idx, summary in enumerate(wl_summaries, 1):
+            url_html = (
+                f'<a href="{summary.url}" style="color:#667eea;text-decoration:none;font-size:12px;" target="_blank">查看详情</a>'
+                if summary.url else ''
+            )
+            html_lines.append(
+                f'<div style="padding:10px 0;border-bottom:1px solid #c3e6cb;">'
+                f'<div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:4px;">{idx}. {summary.title}</div>'
+                f'<div style="font-size:13px;color:#666;margin-bottom:6px;">{summary.snippet}</div>'
+                f'{url_html}'
+                f'</div>'
+            )
+
+        html_lines.append('</div>')
+        return html_lines

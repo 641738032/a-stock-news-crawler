@@ -11,6 +11,7 @@ import pytz
 from .email import EmailNotifier
 from ..utils.classifier import DAILY_CATEGORIES
 from ..utils.summary_generator import SummaryGenerator
+from ..utils.watchlist import parse_watchlist, flatten_watchlist_tokens
 
 
 class DailySummaryEmailNotifier(EmailNotifier):
@@ -215,13 +216,14 @@ class DailySummaryEmailNotifier(EmailNotifier):
             f'<p>日期：{date_str} | 时间段：{period_name} | 总计：{total_count}条</p>',
             '</div>',
         ])
+        watchlist_tokens = flatten_watchlist_tokens(parse_watchlist())
 
         # 2. 概览卡片
         html_lines.extend(self._build_overview_section(classified_news))
 
         # 3. 持股仓关注
-        if watchlist_news:
-            html_lines.extend(self._build_watchlist_section(watchlist_news))
+        if watchlist_tokens:
+            html_lines.extend(self._build_watchlist_section(watchlist_tokens, watchlist_news or []))
 
         # 4. 热点列表（Top 5-10）
         html_lines.extend(self._build_hotspot_section(classified_news))
@@ -249,14 +251,25 @@ class DailySummaryEmailNotifier(EmailNotifier):
 
         return '\n'.join(html_lines)
 
-    def _build_watchlist_section(self, watchlist_news: List[Dict[str, Any]]) -> List[str]:
-        """构建持股仓关注区块"""
+    def _build_watchlist_section(self, watchlist_tokens: List[str], watchlist_news: List[Dict[str, Any]]) -> List[str]:
+        """构建持股仓关注区块（无命中时也展示）。"""
         from ..utils.summary_generator import SummaryGenerator
 
+        tokens_text = '、'.join(watchlist_tokens)
         html_lines = [
             '<div style="padding:20px;background-color:#f0fff4;border-left:4px solid #27ae60;margin:20px 0;">',
             '<h2 style="margin:0 0 15px 0;font-size:18px;color:#27ae60;">⭐ 持股仓关注</h2>',
+            f'<div style="font-size:12px;color:#2c3e50;margin-bottom:12px;">关注关键词：{tokens_text}</div>',
         ]
+
+        if not watchlist_news:
+            html_lines.extend([
+                '<div style="font-size:13px;color:#666;background:#ffffff;padding:10px;border:1px dashed #c3e6cb;">',
+                '本期未命中持股仓相关新闻',
+                '</div>',
+                '</div>',
+            ])
+            return html_lines
 
         summary_generator = SummaryGenerator()
         summaries = summary_generator.generate_summaries(watchlist_news)

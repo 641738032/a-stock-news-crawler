@@ -49,6 +49,11 @@ jobs:
           echo "当前工作目录: $(pwd)"
           echo "目录内容:"
           ls -la
+          if [ -n "${WATCHLIST_STOCKS}" ]; then
+            echo "WATCHLIST_STOCKS: 已配置"
+          else
+            echo "WATCHLIST_STOCKS: 未配置"
+          fi
           python src/main.py
           echo ""
           echo "爬虫运行后的目录内容:"

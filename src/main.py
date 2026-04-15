@@ -14,7 +14,7 @@ from src.scrapers.xueqiu_scraper_improved import XueqiuScraperImproved
 from src.utils.data_manager import DataManager
 from src.utils.time_utils import TimeUtils, get_trading_status
 from src.utils.logger import Logger
-from src.utils.watchlist import parse_watchlist, filter_watchlist_news
+from src.utils.watchlist import parse_watchlist, filter_watchlist_news, flatten_watchlist_tokens
 from src.notifiers.wechat import WeChatNotifier
 from src.notifiers.email import EmailNotifier
 
@@ -200,6 +200,11 @@ class CrawlerApp:
         # 推送通知
         if all_new_items:
             watchlist = parse_watchlist()
+            watchlist_tokens = flatten_watchlist_tokens(watchlist)
+            if watchlist_tokens:
+                self.logger.info(f"持股仓关键词已加载 ({len(watchlist_tokens)} 个): {', '.join(watchlist_tokens)}")
+            else:
+                self.logger.info("未配置 WATCHLIST_STOCKS，持股仓关注模块将不展示")
             self._send_notifications(all_new_items, watchlist)
         else:
             self.logger.info("没有最近一小时的新内容，跳过推送")
@@ -223,6 +228,7 @@ class CrawlerApp:
             self.logger.info(f"推送 {source} 的 {len(news_list)} 条新闻")
 
             wl_news = filter_watchlist_news(news_list, watchlist or [])
+            self.logger.info(f"{source} 持股仓命中: {len(wl_news)} 条")
             for notifier_name, notifier in self.notifiers.items():
                 try:
                     success = notifier.send(news_list, source=source, watchlist_news=wl_news)

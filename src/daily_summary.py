@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.utils.data_manager import DataManager
 from src.utils.logger import Logger
 from src.utils.classifier import classify_news_list
-from src.utils.watchlist import parse_watchlist, filter_watchlist_news
+from src.utils.watchlist import parse_watchlist, filter_watchlist_news, flatten_watchlist_tokens
 from src.notifiers.daily_email import DailySummaryEmailNotifier
 
 
@@ -132,9 +132,13 @@ class DailySummaryApp:
 
             # 4. 持股仓过滤
             watchlist = parse_watchlist()
+            watchlist_tokens = flatten_watchlist_tokens(watchlist)
+            if watchlist_tokens:
+                self.logger.info(f"持股仓关键词已加载 ({len(watchlist_tokens)} 个): {', '.join(watchlist_tokens)}")
+            else:
+                self.logger.info("未配置 WATCHLIST_STOCKS，持股仓关注模块将不展示")
             watchlist_news = filter_watchlist_news(filtered_news, watchlist)
-            if watchlist_news:
-                self.logger.info(f"持股仓相关新闻: {len(watchlist_news)} 条")
+            self.logger.info(f"持股仓相关新闻: {len(watchlist_news)} 条")
 
             # 5. 生成统计信息
             stats = self._generate_statistics(classified_news)
